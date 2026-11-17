@@ -141,7 +141,10 @@ def idx(options: list, value) -> int:
 
 def to_date(value) -> date:
     try:
-        return pd.to_datetime(value).date()
+        d = pd.to_datetime(value)
+        if pd.isna(d):
+            return date.today()
+        return d.date()
     except Exception:  # noqa: BLE001
         return date.today()
 
@@ -587,11 +590,14 @@ def _form_sensor(prefix: str, df_eq: pd.DataFrame, row: dict | None = None) -> d
     etiquetas.update({int(r["id"]): f"{r['nombre']} · {r['negocio']}" for r in df_eq.to_dict("records")})
     actual = int(row["equipo_id"]) if row.get("equipo_id") is not None and not pd.isna(row.get("equipo_id")) else None
     tipos = TIPOS_SENSOR if row.get("tipo") in (None, *TIPOS_SENSOR) else TIPOS_SENSOR + [row["tipo"]]
+    hoy = date.today()
+    fecha_min = date(2000, 1, 1)
+    fecha_val = min(max(to_date(row.get("fecha_instalacion")), fecha_min), hoy)
     return {
         "codigo": a.text_input("Código del sensor *", row.get("codigo", ""), key=f"{prefix}c"),
         "tipo": b.selectbox("Tipo de sensor *", tipos, idx(tipos, row.get("tipo")), key=f"{prefix}t"),
-        "fecha_instalacion": a.date_input("Fecha de instalación *", to_date(row.get("fecha_instalacion")),
-                                          max_value=date.today(), key=f"{prefix}f"),
+         "fecha_instalacion": a.date_input("Fecha de instalación *", fecha_val,
+                               min_value=fecha_min, max_value=hoy, key=f"{prefix}f"),
         "equipo_id": b.selectbox("Equipo asociado", ids, idx(ids, actual), format_func=etiquetas.get, key=f"{prefix}q"),
         "estado": a.selectbox("Estado", ESTADOS_SENSOR, idx(ESTADOS_SENSOR, row.get("estado", "inactivo")),
                               format_func=lambda e: ESTADO_SENSOR_ICON[e], key=f"{prefix}e"),
